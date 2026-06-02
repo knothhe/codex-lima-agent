@@ -86,16 +86,18 @@ provision:
       export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"
       npm install -g @openai/codex@latest
 
-      {
-        echo 'sandbox_mode = "workspace-write"'
-        echo 'approval_policy = "on-request"'
-        echo 'approvals_reviewer = "user"'
-        echo 'cli_auth_credentials_store = "file"'
-        echo 'web_search = "cached"'
-        echo ''
-        echo '[sandbox_workspace_write]'
-        echo 'writable_roots = ["/workspace", "/home/ubuntu/work"]'
-      } > "$HOME/.codex/config.toml"
+      if [ ! -f "$HOME/.codex/config.toml" ]; then
+        {
+          echo 'sandbox_mode = "workspace-write"'
+          echo 'approval_policy = "on-request"'
+          echo 'approvals_reviewer = "user"'
+          echo 'cli_auth_credentials_store = "file"'
+          echo 'web_search = "cached"'
+          echo ''
+          echo '[sandbox_workspace_write]'
+          echo 'writable_roots = ["/workspace", "/home/ubuntu/work"]'
+        } > "$HOME/.codex/config.toml"
+      fi
 
       codex --version || true
 
