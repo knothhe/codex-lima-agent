@@ -1,0 +1,109 @@
+# Lima VM for a persistent Codex CLI agent runtime on macOS.
+# Start with: ./bin/bootstrap-host.sh
+
+vmType: vz
+mountType: virtiofs
+
+images:
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img"
+    arch: "aarch64"
+  - location: "https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-amd64.img"
+    arch: "x86_64"
+
+cpus: 4
+memory: "6GiB"
+disk: "48GiB"
+
+mounts:
+  - location: "__CODEX_AGENT_HOST_WORKSPACE__"
+    mountPoint: "/workspace"
+    writable: true
+
+ssh:
+  localPort: 60022
+
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      export DEBIAN_FRONTEND=noninteractive
+      apt-get update
+      apt-get install -y --no-install-recommends \
+        bash-completion \
+        bubblewrap \
+        build-essential \
+        ca-certificates \
+        curl \
+        fd-find \
+        git \
+        jq \
+        less \
+        locales \
+        nano \
+        nodejs \
+        npm \
+        openssh-client \
+        pkg-config \
+        python3 \
+        python3-pip \
+        python3-venv \
+        ripgrep \
+        unzip \
+        zsh
+
+      locale-gen en_US.UTF-8
+
+      if id -u ubuntu >/dev/null 2>&1; then
+        usermod -aG sudo ubuntu
+      fi
+
+  - mode: user
+    script: |
+      #!/usr/bin/env bash
+      set -euo pipefail
+
+      mkdir -p "$HOME/.local/bin" "$HOME/.local/npm-global" "$HOME/.codex" "$HOME/work"
+
+      npm config set prefix "$HOME/.local/npm-global"
+
+      PROFILE="$HOME/.profile"
+      if ! grep -q 'npm-global/bin' "$PROFILE" 2>/dev/null; then
+        {
+          echo ''
+          echo 'export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"'
+          echo 'export CODEX_HOME="${CODEX_HOME:-$HOME/.codex}"'
+          echo 'export LANG=en_US.UTF-8'
+          echo 'export LC_ALL=en_US.UTF-8'
+        } >> "$PROFILE"
+      fi
+
+      export PATH="$HOME/.local/npm-global/bin:$HOME/.local/bin:$PATH"
+      npm install -g @openai/codex@latest
+
+      {
+        echo 'sandbox_mode = "workspace-write"'
+        echo 'approval_policy = "on-request"'
+        echo 'approvals_reviewer = "user"'
+        echo 'cli_auth_credentials_store = "file"'
+        echo 'web_search = "cached"'
+        echo ''
+        echo '[sandbox_workspace_write]'
+        echo 'writable_roots = ["/workspace", "/home/ubuntu/work"]'
+      } > "$HOME/.codex/config.toml"
+
+      codex --version || true
+
+message: |
+  Codex agent VM is ready.
+
+  Next:
+    limactl shell codex-agent
+    codex login --device-auth
+    cd /workspace
+    codex --sandbox workspace-write --ask-for-approval on-request
