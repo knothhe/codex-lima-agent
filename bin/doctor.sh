@@ -2,8 +2,9 @@
 set -euo pipefail
 
 VM_NAME="${CODEX_AGENT_VM_NAME:-codex-agent}"
+WORKDIR_IN_VM="${CODEX_AGENT_WORKDIR:-/workspace}"
 
-limactl shell "$VM_NAME" -- bash -lc '
+limactl shell --workdir "$WORKDIR_IN_VM" "$VM_NAME" -- bash -lc '
 set -e
 echo "== system =="
 uname -a
